@@ -40,6 +40,25 @@ from browser_probe import JS_CLICK, JS_PROBE
 
 LOG_DIR = "logs"
 
+
+def _make_console_unicode_safe():
+    """Stop a name with emoji or CJK from killing the run.
+
+    Windows consoles default to cp1252. Printing a profile called "张伟" or
+    "Ali 🚀 Khan" then raises UnicodeEncodeError from inside print(), which
+    aborts the run mid-row. Switching stdout to UTF-8 fixes the common case;
+    errors="replace" guarantees that even a console that cannot render a
+    glyph degrades to "?" instead of throwing.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
+_make_console_unicode_safe()
+
 # LinkedIn bounces automation into one of these when it wants a human.
 CHECKPOINT_MARKERS = ("/checkpoint/", "/authwall", "/uas/login", "/login",
                       "/signup", "captcha")
@@ -327,7 +346,10 @@ def linkedin_signed_in(page):
 
 
 _TITLE_COUNT = re.compile(r"^\(\d+\+?\)\s*")
-_TITLE_SUFFIX = re.compile(r"\s*[|–-]\s*LinkedIn\s*$", re.I)
+# FRAGILE: a repo-wide punctuation pass once turned the en dash here into "-",
+# producing "[|--]" - an invalid character range that crashes at import.
+# test_text_safety.py compiles every module regex, so that fails the suite now.
+_TITLE_SUFFIX = re.compile(r"\s*[|–—\-]\s*LinkedIn\s*$", re.I)
 _NOT_A_NAME = {"", "feed", "linkedin", "home", "my network", "jobs", "messaging",
                "notifications", "search", "log in or sign up"}
 
@@ -377,9 +399,12 @@ def profile_name(page):
     return ""
 
 
-# "· 3rd+", "1st", "2nd" - the connection-degree badge shares a class with the
+# "* 3rd+", "1st", "2nd" - the connection-degree badge shares a class with the
 # headline on current LinkedIn, so it has to be rejected explicitly.
-_DEGREE_ONLY = re.compile(r"^[\s·•\-]*\d(?:st|nd|rd|th)\+?[\s·•\-]*$", re.I)
+# Escapes again: written literally this became "[\s*-\-]", which still compiles
+# but silently means the RANGE * to -, matching "+" and "," as well.
+_DEGREE_ONLY = re.compile(
+    r"^[\s·•\-]*\d(?:st|nd|rd|th)\+?[\s·•\-]*$", re.I)
 
 # Chrome/LinkedIn chrome that sits above the name in the page's text.
 _NAV_NOISE = ("skip to", "notification", "home", "my network", "jobs",
@@ -394,7 +419,7 @@ def profile_headline(page):
             el = page.query_selector(sel)
             if el:
                 txt = " ".join((el.inner_text() or "").split())
-                # "· 3rd+" is the connection-degree badge, not a headline.
+                # "* 3rd+" is the connection-degree badge, not a headline.
                 if txt and len(txt) < 400 and not _DEGREE_ONLY.match(txt):
                     return txt
         except PWError:

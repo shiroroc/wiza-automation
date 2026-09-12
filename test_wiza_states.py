@@ -191,6 +191,6 @@ print("\n" + "=" * 60)
 if FAILURES:
     print(f"{len(FAILURES)} FAILURE(S):\n")
     for f in FAILURES:
-        print("  - " + f)
+        print(" - " + f)
     sys.exit(1)
 print("All real-panel state tests passed.")

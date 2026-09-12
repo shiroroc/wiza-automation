@@ -5,8 +5,8 @@
     python metrics.py --last       # the most recent run only
 
 Answers the two questions that decide whether this is worth running:
-  - how many profiles per hour, measured rather than planned
-  - what share of them produced a contact you did not have before
+ - how many profiles per hour, measured rather than planned
+ - what share of them produced a contact you did not have before
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def main():
     span_s = 0.0
     if len(stamps) > 1:
         span_s = (datetime.fromisoformat(stamps[-1])
-                  - datetime.fromisoformat(stamps[0])).total_seconds()
+                 - datetime.fromisoformat(stamps[0])).total_seconds()
     # n rows produce n-1 gaps; the first row's own time is not in the span.
     per_hour = (total - 1) / span_s * 3600 if span_s > 0 else 0.0
 

@@ -13,6 +13,7 @@ SUITES = [
     ("daily budget / working hours", "test_limits.py", False),
     ("ETA tracker / tab lifecycle", "test_progress_tabs.py", False),
     ("browser / port / profile lock", "test_lockfile.py", False),
+    ("text safety / unicode / multi-value", "test_text_safety.py", False),
     ("real Wiza panel states (from screenshots)", "test_wiza_states.py", False),
     ("real browser + shadow DOM panel", "test_browser.py", True),
     ("chrome side panel + stale-panel guard", "test_sidepanel.py", True),

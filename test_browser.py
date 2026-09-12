@@ -101,7 +101,7 @@ def main():
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S):\n")
         for f in FAILURES:
-            print("  - " + f)
+            print(" - " + f)
         sys.exit(1)
     print("Browser integration tests passed.")
 

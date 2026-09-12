@@ -253,12 +253,12 @@ def finish():
     if bad:
         print(f"  {len(bad)} BLOCKER(S) - fix these before running:")
         for t in bad:
-            print(f"    - {t}")
+            print(f"   - {t}")
         sys.exit(1)
     if warn:
         print(f"  Ready, with {len(warn)} warning(s):")
         for t in warn:
-            print(f"    - {t}")
+            print(f"   - {t}")
     else:
         print("  All checks passed.")
     print("\n  Next:  python wiza_auto.py --dry-run")

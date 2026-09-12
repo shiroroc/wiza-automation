@@ -12,7 +12,66 @@ import csv
 import io
 import os
 import tempfile
+import unicodedata
 from typing import List, Optional
+
+
+# FRAGILE BY NATURE: this table maps special characters, so it is exactly what
+# a repo-wide "smart punctuation to ASCII" pass destroys - it once rewrote the
+# em-dash KEY into "-", breaking the very code that does the cleaning.
+# test_text_safety.py asserts these keys are single characters and that the
+# em dash still maps correctly, so that damage fails the suite instead of
+# shipping. Do not "tidy" the characters below.
+
+# Invisible characters that break a spreadsheet or a terminal without carrying
+# meaning. Real international text (Jose, Zhang Wei, accents, CJK) is NOT
+# touched - only the structural troublemakers.
+_ZERO_WIDTH = dict.fromkeys(map(ord, (
+    "​‌‍‎‏"    # zero-width space/joiners, LTR/RTL marks
+    "‪‫‬‭‮"    # bidi embedding and override
+    "⁦⁧⁨⁩"          # bidi isolates
+    "﻿"                            # BOM appearing mid-string
+)), None)
+
+# Smart punctuation turns into mojibake the moment anything reads the file as
+# cp1252, which Excel on Windows routinely does. The ASCII forms are lossless
+# for our purposes and cannot corrupt a cell.
+_PUNCT = {
+    "—": "-",    "–": "-",    "‒": "-",    "−": "-",
+    "‘": "'",    "’": "'",    "‚": "'",    "‛": "'",
+    "“": '"',    "”": '"',    "„": '"',    "‟": '"',
+    "…": "...",  " ": " ",    "•": "*",    "·": "*",
+}
+_PUNCT_MAP = {ord(k): v for k, v in _PUNCT.items()}
+
+
+def clean_cell(value) -> str:
+    """Make any value safe to put in a spreadsheet cell.
+
+    Handles what real LinkedIn profiles actually contain: emoji, right-to-left
+    marks, zero-width joiners, smart quotes, stray newlines and tabs. A newline
+    inside a cell is the one that silently splits a CSV row in some readers, so
+    line breaks become spaces rather than being preserved.
+
+    International characters are deliberately kept: only invisible control
+    characters and Windows-hostile punctuation are rewritten.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    if not s:
+        return ""
+
+    # NFC first, so accented characters are one code point rather than two.
+    s = unicodedata.normalize("NFC", s)
+    s = s.translate(_ZERO_WIDTH)
+    s = s.translate(_PUNCT_MAP)
+
+    # Any remaining control character (including newlines and tabs) becomes a
+    # space. Keeping them risks a broken row or an unreadable terminal line.
+    s = "".join(" " if (ch < " " or ch == "\x7f") else ch for ch in s)
+
+    return " ".join(s.split())
 
 
 def col_letter_to_index(letter: str) -> int:
@@ -111,9 +170,10 @@ class Table:
         return str(r[col]).strip() if col < len(r) else ""
 
     def set(self, row: int, col: int, value) -> None:
+        """Write a cell. Every value is sanitised - see clean_cell()."""
         self.ensure_rows(row)
         self.ensure_width(col + 1)
-        self.rows[row - 1][col] = "" if value is None else str(value)
+        self.rows[row - 1][col] = clean_cell(value)
 
     def set_header(self, col: int, name: str) -> None:
         """Write a header name only if that header cell is currently empty."""

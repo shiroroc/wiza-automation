@@ -15,7 +15,7 @@ browser:
   #   new_tab - a fresh tab per profile in the SAME window, closing the previous
   #             one once the new tab has taken over. Mirrors how you do it by
   #             hand, and leaves each profile's panel state cleanly separated.
-  #   reuse   - one tab, navigated repeatedly. Slightly fewer moving parts.
+  #   reuse  - one tab, navigated repeatedly. Slightly fewer moving parts.
   # Either way the profile-name guard catches a panel that has not caught up.
   tab_strategy: "new_tab"
 
@@ -179,8 +179,8 @@ wiza:
   # content; these are extra URL fragments to recognise a panel frame found
   # anywhere else (e.g. injected straight into the LinkedIn page).
   panel_url_contains:
-    - "plugin.wiza.co"
-    - "wiza.co"
+   - "plugin.wiza.co"
+   - "wiza.co"
 
   # Click a reveal button if one is present. Set enabled: false if your panel
   # already shows the data on load with no click needed.
@@ -188,115 +188,115 @@ wiza:
     enabled: true
     selectors: []              # exact CSS wins over text matching, if you have it
     text_patterns:
-      - "reveal contact"       # the real Wiza button: "Reveal contact info"
-      - "^ *reveal"
-      - "^ *find"
-      - "get (email|phone|contact)"
-      - "show (email|phone)"
-      - "find contact"
-      - "unlock"
+     - "reveal contact"       # the real Wiza button: "Reveal contact info"
+     - "^ *reveal"
+     - "^ *find"
+     - "get (email|phone|contact)"
+     - "show (email|phone)"
+     - "find contact"
+     - "unlock"
     # Never click these, whatever else they match. "Forget lead" is
     # destructive; the rest just waste time or navigate away.
     exclude_patterns:
-      - "forget lead"
-      - "connect integration"
-      - "save to list"
-      - "select list"
-      - "learn more"
-      - "try opening another"
-      - "reveals on your plan"
-      - "^(prospect|contacts|history)$"
-      - "settings"
-      - "copy"                 # the copy-to-clipboard icons beside each value
-      - "thumb|correct|incorrect|report|feedback"   # the up/down vote icons
-      - "forget|delete|remove"
+     - "forget lead"
+     - "connect integration"
+     - "save to list"
+     - "select list"
+     - "learn more"
+     - "try opening another"
+     - "reveals on your plan"
+     - "^(prospect|contacts|history)$"
+     - "settings"
+     - "copy"                 # the copy-to-clipboard icons beside each value
+     - "thumb|correct|incorrect|report|feedback"   # the up/down vote icons
+     - "forget|delete|remove"
     # Unmistakable matches that beat the exclude list below. Without this the
     # real button is skipped, because its element text sweeps up the adjacent
     # "Unlimited reveals on your plan" line that the exclude list targets.
     strong_patterns:
-      - "reveal contact info"
-      - "reveal contact"
+     - "reveal contact info"
+     - "reveal contact"
 
     max_clicks: 2              # e.g. "Find Email" then "Find Phone"
     gap_ms: 2500
 
   # Panel text that means "still working" - keep waiting.
   in_progress_patterns:
-    - "finding contact data"   # Wiza's real loading state
-    - "hang tight"
-    - "searching"
-    - "finding"
-    - "loading"
-    - "in progress"
-    - "please wait"
-    - "validating"
+   - "finding contact data"   # Wiza's real loading state
+   - "hang tight"
+   - "searching"
+   - "finding"
+   - "loading"
+   - "in progress"
+   - "please wait"
+   - "validating"
 
   # Panel text that means "done, nothing there" - record and move on.
   not_found_patterns:
-    - "no email found"         # Wiza's real wording
-    - "no phone found"
-    - "not found"
-    - "no email"
-    - "no phone"
-    - "no contact"
-    - "could ?n[o']t find"
-    - "unable to find"
-    - "no results"
-    - "nothing found"
+   - "no email found"         # Wiza's real wording
+   - "no phone found"
+   - "not found"
+   - "no email"
+   - "no phone"
+   - "no contact"
+   - "could ?n[o']t find"
+   - "unable to find"
+   - "no results"
+   - "nothing found"
 
   # The "this profile matched nothing at all" state. Wiza shows NO name in
   # this state, so the profile-name guard is relaxed for it (see run.verify_
   # profile_name) - freshness is proven by the panel having changed instead.
   no_match_patterns:
-    - "could ?n[o']t find this contact"
-    - "able to match this profile"
-    - "no contact information to reveal"
-    - "try opening another profile"
+   - "could ?n[o']t find this contact"
+   - "able to match this profile"
+   - "no contact information to reveal"
+   - "try opening another profile"
 
   # Wiza refusing the lookup outright. "Name can't be blank" means Wiza could
   # not read the person's name from the page - usually because the panel bound
   # before LinkedIn finished rendering. Recorded and retried, not fatal.
   # NOTE: Wiza renders a CURLY apostrophe (U+2019), not a straight one, so
-  # these use "can.{0,2}t" to cover can't / can’t / cant rather than a literal.
+  # these use "can.{0,2}t" to cover can't / can't / cant rather than a literal.
   wiza_error_patterns:
-    - "name can.{0,2}t be blank"
-    - "name is required"
-    - "something went wrong"
-    - "please try again later"
+   - "name can.{0,2}t be blank"
+   - "name is required"
+   - "something went wrong"
+   - "please try again later"
 
   # The panel's OWN failure screen. Recoverable: press its Reload button and
   # carry on. Left alone this fails every remaining row, not just this one.
   panel_error_patterns:
-    - "could ?n[o']t load"
-    - "check your connection"
-    - "reload the panel"
-    - "something went wrong"
+   - "could ?n[o']t load"
+   - "check your connection"
+   - "reload the panel"
+   - "something went wrong"
 
   # Buttons that recover from that screen. Clicking these costs no lookup.
   recover_button_patterns:
-    - "^ *reload"
-    - "^ *retry"
-    - "^ *try again"
+   - "^ *reload"
+   - "^ *retry"
+   - "^ *try again"
   max_recover_clicks: 1
 
   # Panel text that means the plan/credits are gone - STOP the whole run.
   # Note "Unlimited Email credits" appears in the footer on every screen and
   # must NOT match any of these.
   stop_run_patterns:
-    - "out of credits"
-    - "no credits remaining"
-    - "credit limit"
-    - "upgrade your plan"
-    - "quota exceeded"
-    - "limit reached"
+   - "out of credits"
+   - "no credits remaining"
+   - "credit limit"
+   - "upgrade your plan"
+   - "quota exceeded"
+   - "limit reached"
 
   # Emails matching these are ignored (the panel's own chrome, LinkedIn assets).
   email_exclude_patterns:
-    - "@linkedin[.]"
-    - "@wiza[.]"
-    - "example[.](com|org)"
-    - "sentry"
-    - "[.](png|jpg|jpeg|gif|svg|webp)$"
+   - "@linkedin[.]"
+   - "@wiza[.]"
+   - "example[.](com|org)"
+   - "sentry"
+   - "[.](png|jpg|jpeg|gif|svg|webp)$"
 
   # Before you click Reveal, Wiza shows masked previews: ***@uber.com and
   # +1 (***) *** ****. Any candidate containing one of these characters is a

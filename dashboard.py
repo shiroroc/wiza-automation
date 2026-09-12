@@ -89,7 +89,7 @@ def main():
         ts = sorted(r["ts"] for r in rows if r.get("ts"))
         if len(ts) > 1:
             span = (datetime.fromisoformat(ts[-1])
-                    - datetime.fromisoformat(ts[0])).total_seconds()
+                   - datetime.fromisoformat(ts[0])).total_seconds()
             if span > 0:
                 paces.append((len(rows) - 1) / span * 3600)
     pace = sum(paces) / len(paces) if paces else 0

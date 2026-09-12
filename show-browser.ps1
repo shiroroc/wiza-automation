@@ -148,9 +148,9 @@ Write-Host "  Title   : $($proc.MainWindowTitle)"
 Write-Host "  Profile : $ProfileDir"
 Write-Host ""
 Write-Host "How to spot it yourself, any time:" -ForegroundColor Cyan
-Write-Host "  - the tab is titled 'WIZA AUTOMATION BROWSER'"
-Write-Host "  - it is the only Chrome with no bookmarks bar and no history"
-Write-Host "  - Alt+Tab and look for the gear icon, or click its taskbar button"
+Write-Host " - the tab is titled 'WIZA AUTOMATION BROWSER'"
+Write-Host " - it is the only Chrome with no bookmarks bar and no history"
+Write-Host " - Alt+Tab and look for the gear icon, or click its taskbar button"
 Write-Host ""
 Write-Host "Tip: -Center moves it to the middle of the screen if it is somewhere odd:" -ForegroundColor DarkGray
 Write-Host "  powershell -File show-browser.ps1 -Center" -ForegroundColor DarkGray

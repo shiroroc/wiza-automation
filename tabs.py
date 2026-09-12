@@ -6,8 +6,8 @@ So every tab this opens is tracked with a timestamp and closed once the next one
 has taken over, with a sweep for anything that leaked.
 
 Two rules keep this from ever eating your own work:
-  - it only ever closes tabs showing a LinkedIn PROFILE (/in/...)
-  - it never closes the tab currently being worked on, and never the last tab
+ - it only ever closes tabs showing a LinkedIn PROFILE (/in/...)
+ - it never closes the tab currently being worked on, and never the last tab
 Your Wiza dashboard, your spreadsheet, your inbox are all untouchable by this.
 """
 

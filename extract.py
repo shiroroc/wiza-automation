@@ -16,6 +16,11 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # The optional leading "(" matters: without it "(415) 555-0132" loses its paren.
 PHONE_RE = re.compile(r"\+?\(?\d[\d\s().\-]{6,}\d")
 
+# FRAGILE: a repo-wide "smart punctuation to ASCII" pass once rewrote the
+# bullet here into a HYPHEN, which silently made every phone number containing
+# "-" look like a masked preview and discarded them all. test_text_safety.py
+# pins these four code points so that failure cannot ship again.
+#   * = asterisk, U+2022 bullet, U+25CF black circle, U+00B7 middle dot
 DEFAULT_MASK_CHARS = "*•●·"
 
 # Statuses written to the sheet.
@@ -176,10 +181,23 @@ def name_tokens(name: str) -> List[str]:
     """
     if not name:
         return []
+    # Strip accents so "Jose" and "José" agree, then split on non-word
+    # characters WITH Unicode semantics. Splitting on [^a-z0-9] instead would
+    # discard every CJK, Arabic, Cyrillic or Devanagari name entirely - the
+    # guard could then never match, and those profiles would be marked
+    # stale_panel forever and never written.
     s = unicodedata.normalize("NFKD", str(name))
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
-    raw = re.split(r"[^a-z0-9]+", s)
-    return [t for t in raw if len(t) > 1 and t not in _NAME_NOISE]
+    raw = re.split(r"[\W_]+", s, flags=re.UNICODE)
+
+    out = []
+    for t in raw:
+        if not t or t in _NAME_NOISE:
+            continue
+        # Latin initials are noise, but a single CJK glyph is a whole name.
+        if len(t) > 1 or not t.isascii():
+            out.append(t)
+    return out
 
 
 def name_matches(expected: str, panel_text: str) -> bool:
