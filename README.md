@@ -10,6 +10,136 @@ risk here and it is worth understanding before you start.
 
 ---
 
+## Quickstart (copy-paste, Windows PowerShell)
+
+Every command below is run from the project folder. Steps 1-5 are once per
+machine; step 6 is once per spreadsheet; step 7 is every run.
+
+### 1. Get the code and install
+
+```powershell
+git clone https://github.com/shiroroc/wiza-automation.git
+cd wiza-automation
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 2. Start the automation browser
+
+```powershell
+powershell -ExecutionPolicy Bypass -File launch-chrome.ps1
+```
+
+This creates a permanent Chrome profile in `.chrome-profile\`. It prints a
+checklist and tells you whether this is first-time setup or a return visit.
+
+### 3. Sign in - ONCE, ever
+
+In the Chrome window that just opened:
+
+1. Sign in to LinkedIn (use the account set aside for this work).
+2. Install the Wiza extension from the Chrome Web Store and sign in to it.
+3. Open any LinkedIn profile.
+4. Open the Wiza side panel and **pin it** (the pin icon in its header).
+
+The profile keeps both logins permanently. You never repeat this. Lost the
+window later? `powershell -ExecutionPolicy Bypass -File show-browser.ps1`
+
+### 4. Point it at your spreadsheet
+
+```powershell
+copy config.example.yaml config.yaml
+notepad config.yaml
+```
+
+Change three lines under `input:` - everything else already works:
+
+```yaml
+input:
+  path: 'C:\path\to\your-leads.csv'   # single quotes on Windows paths
+  url_column: "D"                      # the column letter holding the LinkedIn URL
+  start_row: 2                         # first row of real data
+```
+
+`config.yaml` is git-ignored on purpose, so your real data path never reaches
+the repo. Keep real lead files out of the project folder, or out of git.
+
+### 5. Preflight - costs nothing
+
+```powershell
+.\.venv\Scripts\python.exe doctor.py
+```
+
+Checks config, your sheet, Chrome, the LinkedIn session, the Wiza side panel and
+today's budget. Fix anything it lists as a BLOCKER before going further.
+
+### 6. Prove the mapping before spending a lookup
+
+```powershell
+.\.venv\Scripts\python.exe wiza_auto.py --dry-run
+```
+
+Opens no browser. If the resolved URLs look wrong, your `url_column` or
+`start_row` is wrong.
+
+### 7. Run it
+
+```powershell
+.\.venv\Scripts\python.exe wiza_auto.py --limit 5
+```
+
+Open `out\leads_enriched.csv` and check those five landed in the right columns.
+Then let it run - it stops on its own at the daily cap:
+
+```powershell
+.\.venv\Scripts\python.exe wiza_auto.py
+```
+
+Ctrl-C is always safe. Re-running the same command resumes; rows already marked
+in the `Searched?` column are never opened again.
+
+### 8. See how it went
+
+```powershell
+.\.venv\Scripts\python.exe dashboard.py --open
+.\.venv\Scripts\python.exe metrics.py --last
+```
+
+### Optional: run the test suite
+
+Only needed if you are changing the code. The two browser suites need
+Playwright's own Chromium, which the tool itself does not use:
+
+```powershell
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe run_tests.py
+.\.venv\Scripts\python.exe run_tests.py --fast   # skips the browser suites
+```
+
+### Daily routine, once set up
+
+```powershell
+powershell -ExecutionPolicy Bypass -File launch-chrome.ps1
+.\.venv\Scripts\python.exe doctor.py
+.\.venv\Scripts\python.exe wiza_auto.py
+```
+
+### If something looks wrong
+
+| Symptom | Fix |
+|---|---|
+| `Could not attach to Chrome` | Close every Chrome window, re-run `launch-chrome.ps1` |
+| Every row `no_panel` | The Wiza side panel is closed. Open and pin it |
+| Every row `stale_panel` | Panel is not tracking navigation. Run `calibrate.py <a profile url>` |
+| Dry run shows `UNPARSEABLE` | Wrong `url_column` or `start_row` |
+| LinkedIn shows a warning | **Stop for the day.** That precedes a restriction |
+
+Each teammate needs their own clone, their own Chrome profile and their own
+LinkedIn and Wiza logins. Do not share `.chrome-profile\` - it contains live
+session cookies for both accounts.
+
+---
+
 ## How it works
 
 The script does **not** launch its own browser or log in anywhere. You start
