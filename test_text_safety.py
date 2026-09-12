@@ -169,6 +169,33 @@ check("still rejects a different person",
       ex.name_matches("José Ángel", "Wiza Dana Osei"), False)
 
 
+# --------------------------------- the overlap guard (the row 25 bug)
+# Wiza repaints the panel field by field. Row 25 got row 24's EMAIL while the
+# name and phone had already updated to row 25's person, so an exact
+# (emails, phones) comparison saw a difference and let it through.
+print("\n[repeated-contact guard catches a partial repaint]")
+
+
+def _overlaps(cur_emails, cur_phones, prev_emails, prev_phones):
+    return bool(set(e.lower() for e in cur_emails) & set(e.lower() for e in prev_emails)
+                or set(cur_phones) & set(prev_phones))
+
+
+check("same email, different phone -> caught (the real bug)",
+      _overlaps(["b@merakilabs.test"], ["+1 (352) 870-5456"],
+                ["b@merakilabs.test"], []), True)
+check("identical pair -> caught",
+      _overlaps(["b@x.test"], ["+1"], ["b@x.test"], ["+1"]), True)
+check("same phone, different email -> caught",
+      _overlaps(["c@x.test"], ["+1 555"], ["b@x.test"], ["+1 555"]), True)
+check("genuinely different person -> allowed",
+      _overlaps(["c@y.test"], ["+1 999"], ["b@x.test"], ["+1 555"]), False)
+check("case difference still counts as the same email",
+      _overlaps(["B@X.test"], [], ["b@x.test"], []), True)
+check("no previous contact -> allowed",
+      _overlaps(["c@y.test"], [], [], []), False)
+
+
 # ------------------------------------------------ guard against text passes
 # Three separate bugs came from a repo-wide "smart punctuation to ASCII" pass
 # rewriting literal special characters inside source constants:

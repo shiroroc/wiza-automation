@@ -746,7 +746,15 @@ def _visit(page, url, cfg, classifier, context=None, prev_sig=None, sheet_name="
         # identical to the last row are that bug, not a coincidence - refuse
         # them and keep polling.
         if fresh and prev_contact and (v.emails or v.phones):
-            if (tuple(v.emails), tuple(v.phones)) == prev_contact:
+            # OVERLAP, not exact equality. Wiza repaints the panel field by
+            # field: the name and phone can already belong to this person while
+            # the email still belongs to the last one. An exact (emails, phones)
+            # comparison misses that, because the changed phone makes the pair
+            # differ - which is how one person's email reached another's row.
+            # Two different people sharing an address here is not a real case.
+            prev_emails, prev_phones = prev_contact
+            if (set(e.lower() for e in v.emails) & set(e.lower() for e in prev_emails)
+                    or set(v.phones) & set(prev_phones)):
                 fresh = False
                 repeated_contact = True
 
@@ -974,6 +982,10 @@ def main():
                     help="revisit rows already marked Searched? whose result was "
                          "a failure (timeout, stale_panel, wiza_error)")
     ap.add_argument("--no-click", action="store_true", help="never press a reveal button")
+    ap.add_argument("--ignore-hours", action="store_true",
+                    help="run outside limits.working_hours just this once. The "
+                         "window exists because a consistent odd-hours pattern is "
+                         "an easy automation signal; a one-off is far less of one.")
     ap.add_argument("--cdp-url")
     ap.add_argument("--dry-run", action="store_true",
                     help="resolve rows and print the plan; never opens a browser")
@@ -1041,13 +1053,22 @@ def main():
                              or os.path.join(LOG_DIR, "daily_state.json"))
     window = lcfg.get("working_hours")
 
-    if not args.dry_run and not lim.within_working_hours(window):
+    outside_hours = not lim.within_working_hours(window)
+    if outside_hours and args.ignore_hours:
+        # Deliberate override. The risk is a REPEATED odd-hours pattern, not a
+        # single late session, so say that rather than just going quiet.
+        C.warn(f"--ignore-hours: running outside {lim.describe_window(window)}. "
+               "A one-off is minor; the same odd hour every night is the pattern "
+               "that gets noticed.")
+    elif outside_hours and not args.dry_run:
         sys.exit(
             f"\nOutside the configured working hours "
             f"({lim.describe_window(window)}).\n"
             "An account that views profiles at 4am every day is one of the\n"
-            "easier automation signals to spot. Wait, or change\n"
-            "limits.working_hours in config.yaml.\n"
+            "easier automation signals to spot.\n\n"
+            "  wait, or\n"
+            "  pass --ignore-hours to override just this run, or\n"
+            "  change limits.working_hours in config.yaml to widen the window\n"
         )
 
     if budget.cap:

@@ -12,6 +12,7 @@ import csv
 import io
 import os
 import tempfile
+import time
 import unicodedata
 from typing import List, Optional
 
@@ -226,6 +227,31 @@ def _load_xlsx(path: str, sheet, header_row) -> Table:
     return Table(rows, path, ws.title, header_row)
 
 
+def _replace_with_retry(tmp: str, path: str, attempts: int = 6) -> None:
+    """Swap the temp file into place, tolerating a brief lock.
+
+    On Windows os.replace() fails with "Access is denied" while the target is
+    open in another program - opening the results in Excel to peek at them is
+    enough. That used to kill the run mid-flight and lose the row in hand, so
+    wait for the lock to clear, and if it does not, say plainly what to close.
+    """
+    delay = 0.4
+    for attempt in range(1, attempts + 1):
+        try:
+            os.replace(tmp, path)   # atomic on Windows and POSIX
+            return
+        except PermissionError:
+            if attempt == attempts:
+                raise PermissionError(
+                    f"Cannot write {path} - it is open in another program.\n"
+                    f"  Close it (Excel keeps a lock on an open CSV) and the run\n"
+                    f"  will continue. Nothing written so far has been lost.\n"
+                    f"  Tip: copy the file before opening it, or open the copy."
+                ) from None
+            time.sleep(delay)
+            delay = min(delay * 2, 5.0)
+
+
 def save(table: Table, path: Optional[str] = None) -> str:
     """Atomically write the table. Returns the path written."""
     path = path or table.path
@@ -240,7 +266,7 @@ def save(table: Table, path: Optional[str] = None) -> str:
             _save_xlsx(table, tmp)
         else:
             _save_csv(table, tmp)
-        os.replace(tmp, path)   # atomic on Windows and POSIX
+        _replace_with_retry(tmp, path)
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
