@@ -88,8 +88,11 @@ output:
     headline: "M"              # their LinkedIn headline
     profile_url: "N"           # the canonical URL actually visited
     # "last" = always the final column, whatever the sheet's width becomes.
-    # Stamped for EVERY attempted row regardless of outcome, and any row
-    # carrying it is skipped forever - so a profile is never looked up twice.
+    # Stamped once we have a real ANSWER about the profile (found, not found,
+    # no match, bad url). Any row carrying it is skipped forever, so a profile
+    # is never looked up twice. Infrastructure failures - browser died, panel
+    # shut, page never loaded - are deliberately NOT stamped: they are not
+    # answers, and stamping them would drop the row from every future run.
     searched: "last"
 
   # Header names written into header_row for any column created from scratch.
@@ -336,6 +339,11 @@ run:
   max_profiles: null           # hard cap per run; null = no cap
   resume: true                 # skip rows that already have a status written
   retry_on_error: 1            # retries for load/timeout failures
+
+  # If the browser disappears mid-run (screen lock, sleep, a crash), pause
+  # and keep checking for this long before giving up. Rows are NOT marked
+  # searched while the browser is down, so nothing is lost either way.
+  browser_wait_s: 900
 
   # THE DATA-INTEGRITY GUARD. The side panel persists across navigation and
   # updates a moment later, so a result read too early belongs to the PREVIOUS

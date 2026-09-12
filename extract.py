@@ -44,6 +44,13 @@ PENDING = "__pending__"   # internal: keep polling
 # genuinely means "not found" rather than "we never got to look".
 DEFINITE = {ST_EMAIL_PHONE, ST_EMAIL, ST_PHONE, ST_NOT_FOUND, ST_NO_MATCH}
 
+# Only these get the permanent "Searched?" stamp. A profile is marked done when
+# we actually have an answer about it - or when the row can never work at all.
+# An infrastructure failure (the browser died, the panel was shut, the page
+# never loaded) is NOT an answer: stamping those loses the row forever, because
+# it would never be retried. Losing a row costs more than one repeat lookup.
+SEARCH_STAMPED = DEFINITE | {ST_BAD_URL, ST_SKIPPED}
+
 
 class Verdict:
     panel_error = False   # the panel is showing its own failure screen

@@ -196,6 +196,53 @@ check("no previous contact -> allowed",
       _overlaps(["c@y.test"], [], [], []), False)
 
 
+# ------------------------------ nothing is lost when the browser dies
+# A run died mid-sheet when the screen locked: 18 consecutive rows recorded
+# "browser has been closed", and every one was stamped Searched? - so they
+# would never have been retried. An infra failure is not an answer.
+print("\n[a browser outage must not consume rows]")
+
+
+class _V:
+    def __init__(self, note):
+        self.note = note
+
+
+for note in ("navigation failed: Page.goto: Target page, context or browser has been closed",
+             "Connection closed while reading from the driver",
+             "Target closed",
+             "websocket disconnected"):
+    check(f"detected as a lost connection: {note[:34]}...",
+          wa.connection_lost(_V(note)), True)
+
+check("a real page timeout is NOT a lost connection",
+      wa.connection_lost(_V("page load timeout")), False)
+check("a not-found panel is NOT a lost connection",
+      wa.connection_lost(_V("No email found")), False)
+
+print("\n[Searched? is only stamped for a real answer]")
+for st in (ex.ST_EMAIL, ex.ST_EMAIL_PHONE, ex.ST_PHONE,
+           ex.ST_NOT_FOUND, ex.ST_NO_MATCH, ex.ST_BAD_URL):
+    check(f"{st} is stamped", st in ex.SEARCH_STAMPED, True)
+for st in (ex.ST_ERROR, ex.ST_NO_PANEL, ex.ST_TIMEOUT,
+           ex.ST_STALE_PANEL, ex.ST_WIZA_ERROR):
+    check(f"{st} is NOT stamped (must be retried)", st in ex.SEARCH_STAMPED, False)
+
+_tmp = tempfile.mkdtemp(prefix="wiza_stamp_")
+try:
+    _p = os.path.join(_tmp, "s.csv")
+    _t = sh.Table([["firstName", "url"], ["A", "a-demo"], ["B", "b-demo"]], _p, None, 1)
+    _cols = wa.resolve_output_columns(_t, cfg)
+    wa.write_result(_t, 2, _cols, ex.Verdict(ex.ST_EMAIL, ["x@y.test"]), "u", "not found")
+    wa.write_result(_t, 3, _cols,
+                    ex.Verdict(ex.ST_ERROR, note="browser has been closed"), "u", "not found")
+    check("answered row is stamped", _t.get(2, _cols["searched"]), "yes")
+    check("browser-outage row is NOT stamped", _t.get(3, _cols["searched"]), "")
+    check("outage row keeps its status for the log", _t.get(3, _cols["status"]), "error")
+finally:
+    shutil.rmtree(_tmp, ignore_errors=True)
+
+
 # ------------------------------------------------ guard against text passes
 # Three separate bugs came from a repo-wide "smart punctuation to ASCII" pass
 # rewriting literal special characters inside source constants:

@@ -171,6 +171,70 @@ def connect(cdp_url):
     return pw, browser, browser.contexts[0]
 
 
+def connection_lost(verdict) -> bool:
+    """Is this failure the browser going away, rather than a bad profile?
+
+    When the machine sleeps or the screen locks, Chrome can drop the debug
+    connection. Every subsequent row then fails instantly with the same
+    message. Recognising that is what stops the run chewing through the rest
+    of the sheet recording meaningless errors.
+    """
+    note = (getattr(verdict, "note", "") or "").lower()
+    return any(sig in note for sig in (
+        "has been closed", "target page, context or browser",
+        "connection closed", "websocket", "browser closed",
+        "target closed", "disconnected",
+    ))
+
+
+def wait_for_browser(cfg, pw, browser, max_wait_s=900):
+    """Pause until the automation browser is usable again.
+
+    Returns (pw, browser, context, page) once reattached, or None if the
+    browser never came back inside max_wait_s. Chrome is never launched here -
+    if it is genuinely gone, only the user can bring it back, so say so and
+    keep checking rather than failing the whole run.
+    """
+    cdp = cfg["browser"]["cdp_url"]
+    detach(pw, browser)
+
+    deadline = time.time() + float(max_wait_s)
+    attempt = 0
+    C.warn("Lost the browser connection - PAUSING. The run continues by itself "
+           "as soon as Chrome is back.")
+    C.warn("  If Chrome closed (screen lock, sleep, or a crash), start it again:")
+    C.warn("    powershell -ExecutionPolicy Bypass -File launch-chrome.ps1")
+
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            new_pw = sync_playwright().start()
+            new_browser = new_pw.chromium.connect_over_cdp(cdp)
+            if new_browser.contexts:
+                ctx = new_browser.contexts[0]
+                page = pick_page(ctx, True)
+                left = int(deadline - time.time())
+                C.info(f"Reconnected to Chrome after {attempt} attempt(s). "
+                       f"Resuming.")
+                return new_pw, new_browser, ctx, page
+            new_pw.stop()
+        except Exception:
+            try:
+                new_pw.stop()
+            except Exception:
+                pass
+
+        remaining = int(deadline - time.time())
+        if attempt % 6 == 1:
+            C.info(f"  still waiting for Chrome... ({remaining // 60}m "
+                   f"{remaining % 60}s before giving up)")
+        time.sleep(10)
+
+    C.warn("Chrome did not come back. Stopping so the remaining rows stay "
+           "untouched for the next run.")
+    return None
+
+
 def detach(pw, browser=None):
     """Let go of the browser WITHOUT closing it.
 
@@ -943,9 +1007,11 @@ def write_result(table, row_no, cols, verdict, url, not_found_text="not found"):
         "name": getattr(verdict, "name", ""),
         "headline": getattr(verdict, "headline", ""),
         "profile_url": getattr(verdict, "profile_url", url),
-        # Stamped whatever the outcome: this profile has been looked at, and
-        # re-opening it costs a real LinkedIn view for no new information.
-        "searched": "yes",
+        # Stamped only when we actually have an answer (or the row is
+        # unusable). An infra failure - browser died, panel shut, page never
+        # loaded - is not an answer, and stamping it would drop the row from
+        # every future run.
+        "searched": "yes" if verdict.status in ex.SEARCH_STAMPED else "",
     }
     for field, idx in cols.items():
         if field in values:
@@ -1162,7 +1228,9 @@ def main():
             # has a live tab to stay bound to.
             page = keeper.next_tab(page)
 
-            attempts = int(rcfg.get("retry_on_error", 1)) + 1
+            # Extra headroom: a browser-recovery pass consumes an attempt,
+            # and we must not run out of them while waiting for Chrome.
+            attempts = int(rcfg.get("retry_on_error", 1)) + 4
             for attempt in range(1, attempts + 1):
                 v, panel_sig = process_profile(page, url, cfg, classifier,
                                                context, panel_sig, sheet_name,
@@ -1179,6 +1247,21 @@ def main():
                 if v.status == ex.ST_LIMIT:
                     fatal = v.note
                     break
+
+                # The browser went away - screen lock, sleep, or a crash. Pause
+                # and wait for it rather than racing through the rest of the
+                # sheet recording errors against rows nobody ever looked at.
+                if connection_lost(v):
+                    revived = wait_for_browser(
+                        cfg, pw, browser,
+                        max_wait_s=float(rcfg.get("browser_wait_s", 900)))
+                    if revived is None:
+                        fatal = "browser did not come back"
+                        break
+                    pw, browser, context, page = revived
+                    keeper = tb.TabKeeper(context, cfg)
+                    panel_sig = None      # the panel restarted; trust nothing
+                    continue              # re-attempt this same row
 
                 # Retry IN-RUN only for transient navigation failures. A
                 # timeout or a stale panel means the panel was not co-operating
