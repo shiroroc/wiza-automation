@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  Stands in for Wiza's Chrome side panel: a real chrome-extension:// document
+  living in its own browser target, NOT an iframe of the LinkedIn tab.
+
+  It walks the same four states the real panel does:
+    masked preview -> Reveal contact info -> Finding contact data... -> result
+
+  ?outcome=both | email | none | nomatch     &name=Asha+Patel
+-->
+<meta charset="utf-8">
+<title>Wiza Mock Panel</title>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 12px; width: 320px; }
+  .masked { color: #888; }
+  button { padding: 6px 12px; margin-top: 8px; cursor: pointer; display: block; }
+  .footer { margin-top: 16px; color: #666; font-size: 11px; }
+</style>
+
+<div id="wiza-root">
+  <div>Wiza</div>
+  <div>Prospect Contacts History</div>
+  <div id="person"></div>
+  <div id="body"></div>
+
+  <!-- Present on every real screen; must never be read as a credit limit. -->
+  <div class="footer">
+    Connect an Integration
+    <button id="integ">Connect Integration</button>
+    Save to list
+    <div>Unlimited Email credits &nbsp; Unlimited Phone credits</div>
+  </div>
+</div>
+
+<script src="panel.js"></script>

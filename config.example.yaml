@@ -1,0 +1,353 @@
+# ============================================================================
+#  Wiza manual-extraction automation - configuration
+#  Everything you normally tune lives in this file.
+#  Regexes below deliberately avoid backslashes ([.] not \.) so the file
+#  survives being edited by any tool. Case-insensitive, matched anywhere.
+# ============================================================================
+
+browser:
+  # Chrome must already be running via launch-chrome.ps1 on this port.
+  cdp_url: "http://127.0.0.1:9222"
+  # Reuse one tab for every profile (recommended) instead of opening new ones.
+  reuse_tab: true
+
+  # How to open each profile:
+  #   new_tab - a fresh tab per profile in the SAME window, closing the previous
+  #             one once the new tab has taken over. Mirrors how you do it by
+  #             hand, and leaves each profile's panel state cleanly separated.
+  #   reuse   - one tab, navigated repeatedly. Slightly fewer moving parts.
+  # Either way the profile-name guard catches a panel that has not caught up.
+  tab_strategy: "new_tab"
+
+  # Never let more than this many of our profile tabs exist at once. A crash or
+  # a retry loop can otherwise leak tabs until the browser crawls.
+  max_open_profile_tabs: 3
+
+  # At startup, close LinkedIn PROFILE tabs (linkedin.com/in/...) left open from
+  # earlier sessions. Only profile tabs, never the tab in use, and never the
+  # last remaining tab - your Wiza dashboard, sheets and inbox are never touched.
+  close_stale_profile_tabs: true
+
+  # Refuse to drive any browser that is not the one launch-chrome.ps1 started.
+  # The lock lives in .wiza-lock.json and is checked against what Chrome itself
+  # reports at chrome://version. Turning this off means anything holding the
+  # debug port gets driven - including your everyday Chrome and your personal
+  # LinkedIn account. Leave it on.
+  enforce_profile_lock: true
+
+  # Focus the tab before each navigation. The side panel only tracks the active
+  # tab, so with this off the panel can silently stop updating. Leave it on.
+  focus_tab: true
+
+# ---------------------------------------------------------------------------
+#  INPUT: where the LinkedIn profiles come from
+# ---------------------------------------------------------------------------
+input:
+  # Windows paths: use SINGLE quotes. In double quotes YAML treats \ as an
+  # escape character, so "C:\Dev\..." breaks on \D. Single quotes take it
+  # literally. Doubling the quotes ("" "") is also invalid.
+  path: 'leads.csv'            # your own file - keep real data out of git
+  sheet: null                  # .xlsx only; null = first sheet
+
+  # Column holding the LinkedIn URL or public ID.
+  # Accepts a spreadsheet letter ("B") or an exact header name ("Profile URL").
+  url_column: "D"
+
+  # Optional: the column(s) holding the person's name. Gives the stale-panel
+  # guard a SECOND, independent answer to "is the panel showing this row's
+  # person?" - which matters when the URL is an opaque member id and LinkedIn's
+  # page title lags the navigation. Either the page name or this matching is
+  # enough to accept; knowing neither blocks the write.
+  name_columns: ["A", "B"]     # firstName, lastName
+
+  # 1-based spreadsheet row to start from. If row 1 is a header, data starts at 2.
+  start_row: 2
+  end_row: null                # null = run to the bottom of the file
+  header_row: 1                # null if the file has no header row
+
+# ---------------------------------------------------------------------------
+#  OUTPUT: where results get written back
+# ---------------------------------------------------------------------------
+output:
+  # Default writes a copy so your source file is never mutated.
+  # Set in_place: true to write straight back into input.path.
+  path: "out/leads_enriched.csv"
+  in_place: false
+
+  # Target columns, by letter or header name. Columns past the end of the
+  # sheet are created automatically. Set any of these to null to skip it.
+  columns:
+    email: "E"
+    phone: "F"
+    status: "G"
+    all_emails: "H"            # every email found, ";"-separated
+    all_phones: "I"
+    checked_at: "J"
+    note: "K"                  # error text / not-found message
+    name: "L"                  # name as LinkedIn shows it
+    headline: "M"              # their LinkedIn headline
+    profile_url: "N"           # the canonical URL actually visited
+    # "last" = always the final column, whatever the sheet's width becomes.
+    # Stamped for EVERY attempted row regardless of outcome, and any row
+    # carrying it is skipped forever - so a profile is never looked up twice.
+    searched: "last"
+
+  # Header names written into header_row for any column created from scratch.
+  headers:
+    email: "Wiza Email"
+    phone: "Wiza Phone"
+    status: "Wiza Status"
+    all_emails: "Wiza All Emails"
+    all_phones: "Wiza All Phones"
+    checked_at: "Wiza Checked At"
+    note: "Wiza Note"
+    # Prefixed so they cannot collide with a "Name" column of your own -
+    # a duplicate header would make --url-column "Name" ambiguous.
+    name: "LinkedIn Name"
+    headline: "LinkedIn Headline"
+    profile_url: "LinkedIn URL Used"
+    searched: "Searched?"
+
+  # Written into the email/phone cell when Wiza answered but had nothing for
+  # that field. Only used when the panel gave a definite answer - a timeout or
+  # an error leaves the cell blank, because we genuinely do not know.
+  # Set to "" if you would rather those cells stay empty.
+  not_found_text: "not found"
+
+# ---------------------------------------------------------------------------
+#  PACING - the part that keeps your accounts alive. Do not shrink these.
+# ---------------------------------------------------------------------------
+timing:
+  page_load_timeout_ms: 45000
+  panel_timeout_ms: 25000      # how long to wait for the Wiza panel to appear
+  result_timeout_ms: 45000     # how long to wait for a result after clicking Find
+  # After the first hit, keep going this long to collect the other half
+  # (Wiza often puts the phone behind a second button once email is shown).
+  settle_after_first_hit_ms: 3500
+  # After pressing a reveal button, how long to wait for the data to land
+  # before settling for whatever is already on screen.
+  reveal_timeout_ms: 20000
+  poll_interval_ms: 800
+
+  # How long to wait for LinkedIn to render the profile name before engaging
+  # the panel. Wiza reads the page itself; binding too early hands it a blank
+  # name and Reveal then fails with "Name can't be blank".
+  name_wait_ms: 15000
+
+  # A definite "No email found / No phone found" must hold for this long before
+  # it is accepted, so a mid-render flicker is not recorded as a real answer.
+  # Once confirmed the row is written and the run moves on - no more clicking.
+  confirm_not_found_ms: 2500
+
+  # Randomised gap between profiles, in seconds. Real humans are not metronomes.
+  min_delay_s: 12
+  max_delay_s: 30
+
+  # Small random pause before each individual action (navigating, clicking), so
+  # the rhythm within a profile is not machine-perfect either.
+  action_jitter_ms: [250, 900]
+
+  # Spend a moment on the page before reading the panel, and scroll a little,
+  # the way someone actually skimming a profile would. Costs a few seconds per
+  # row and makes the dwell time look far less synthetic.
+  dwell_range_s: [2, 6]
+  scroll_profile: true
+
+  # Every N profiles, take a longer break (seconds, random in range).
+  long_pause_every: 25
+  long_pause_range_s: [90, 210]
+
+# ---------------------------------------------------------------------------
+#  WIZA PANEL - how to find the extension UI and read it
+#  Run `python calibrate.py <profile-url>` to fill these in for your build.
+# ---------------------------------------------------------------------------
+wiza:
+  # Explicit CSS selector for the panel root. Leave null to auto-detect.
+  panel_selector: null
+
+  # Auto-detect: elements whose id/class/tag contains any of these (lowercase).
+  root_hints: ["wiza"]
+
+  # Wiza renders into Chrome's SIDE PANEL, which is a separate browser target
+  # rather than an iframe inside the LinkedIn page. The runner scans both.
+  frame_url_contains: "chrome-extension://"
+  scan_extension_pages: true
+
+  # Wiza's side panel is a thin sidepanel.html shell wrapping an iframe served
+  # from plugin.wiza.co - the real UI is on that HTTPS origin, not on the
+  # extension origin. Every frame inside the panel target is treated as panel
+  # content; these are extra URL fragments to recognise a panel frame found
+  # anywhere else (e.g. injected straight into the LinkedIn page).
+  panel_url_contains:
+    - "plugin.wiza.co"
+    - "wiza.co"
+
+  # Click a reveal button if one is present. Set enabled: false if your panel
+  # already shows the data on load with no click needed.
+  find_button:
+    enabled: true
+    selectors: []              # exact CSS wins over text matching, if you have it
+    text_patterns:
+      - "reveal contact"       # the real Wiza button: "Reveal contact info"
+      - "^ *reveal"
+      - "^ *find"
+      - "get (email|phone|contact)"
+      - "show (email|phone)"
+      - "find contact"
+      - "unlock"
+    # Never click these, whatever else they match. "Forget lead" is
+    # destructive; the rest just waste time or navigate away.
+    exclude_patterns:
+      - "forget lead"
+      - "connect integration"
+      - "save to list"
+      - "select list"
+      - "learn more"
+      - "try opening another"
+      - "reveals on your plan"
+      - "^(prospect|contacts|history)$"
+      - "settings"
+      - "copy"                 # the copy-to-clipboard icons beside each value
+      - "thumb|correct|incorrect|report|feedback"   # the up/down vote icons
+      - "forget|delete|remove"
+    # Unmistakable matches that beat the exclude list below. Without this the
+    # real button is skipped, because its element text sweeps up the adjacent
+    # "Unlimited reveals on your plan" line that the exclude list targets.
+    strong_patterns:
+      - "reveal contact info"
+      - "reveal contact"
+
+    max_clicks: 2              # e.g. "Find Email" then "Find Phone"
+    gap_ms: 2500
+
+  # Panel text that means "still working" - keep waiting.
+  in_progress_patterns:
+    - "finding contact data"   # Wiza's real loading state
+    - "hang tight"
+    - "searching"
+    - "finding"
+    - "loading"
+    - "in progress"
+    - "please wait"
+    - "validating"
+
+  # Panel text that means "done, nothing there" - record and move on.
+  not_found_patterns:
+    - "no email found"         # Wiza's real wording
+    - "no phone found"
+    - "not found"
+    - "no email"
+    - "no phone"
+    - "no contact"
+    - "could ?n[o']t find"
+    - "unable to find"
+    - "no results"
+    - "nothing found"
+
+  # The "this profile matched nothing at all" state. Wiza shows NO name in
+  # this state, so the profile-name guard is relaxed for it (see run.verify_
+  # profile_name) - freshness is proven by the panel having changed instead.
+  no_match_patterns:
+    - "could ?n[o']t find this contact"
+    - "able to match this profile"
+    - "no contact information to reveal"
+    - "try opening another profile"
+
+  # Wiza refusing the lookup outright. "Name can't be blank" means Wiza could
+  # not read the person's name from the page - usually because the panel bound
+  # before LinkedIn finished rendering. Recorded and retried, not fatal.
+  # NOTE: Wiza renders a CURLY apostrophe (U+2019), not a straight one, so
+  # these use "can.{0,2}t" to cover can't / can’t / cant rather than a literal.
+  wiza_error_patterns:
+    - "name can.{0,2}t be blank"
+    - "name is required"
+    - "something went wrong"
+    - "please try again later"
+
+  # The panel's OWN failure screen. Recoverable: press its Reload button and
+  # carry on. Left alone this fails every remaining row, not just this one.
+  panel_error_patterns:
+    - "could ?n[o']t load"
+    - "check your connection"
+    - "reload the panel"
+    - "something went wrong"
+
+  # Buttons that recover from that screen. Clicking these costs no lookup.
+  recover_button_patterns:
+    - "^ *reload"
+    - "^ *retry"
+    - "^ *try again"
+  max_recover_clicks: 1
+
+  # Panel text that means the plan/credits are gone - STOP the whole run.
+  # Note "Unlimited Email credits" appears in the footer on every screen and
+  # must NOT match any of these.
+  stop_run_patterns:
+    - "out of credits"
+    - "no credits remaining"
+    - "credit limit"
+    - "upgrade your plan"
+    - "quota exceeded"
+    - "limit reached"
+
+  # Emails matching these are ignored (the panel's own chrome, LinkedIn assets).
+  email_exclude_patterns:
+    - "@linkedin[.]"
+    - "@wiza[.]"
+    - "example[.](com|org)"
+    - "sentry"
+    - "[.](png|jpg|jpeg|gif|svg|webp)$"
+
+  # Before you click Reveal, Wiza shows masked previews: ***@uber.com and
+  # +1 (***) *** ****. Any candidate containing one of these characters is a
+  # preview, never real data.
+  mask_chars: "*•●·"
+
+  # Phone detection. strict=true only accepts tel: links, +E164 numbers, or
+  # numbers sitting next to a phone label. Loosen only if you lose real hits.
+  phone_strict: true
+  phone_label_patterns: ["phone", "mobile", "direct", "tel", "cell"]
+
+# ---------------------------------------------------------------------------
+#  VOLUME LIMITS - the difference between "ran for weeks" and "banned on day 2"
+#  LinkedIn does not publish its thresholds and they vary by account age, type
+#  and history. These defaults are deliberately conservative. Raise them slowly,
+#  and only if you have run clean for several days.
+# ---------------------------------------------------------------------------
+limits:
+  # Hard stop after this many profiles in a rolling calendar day, counted
+  # across ALL runs (so restarting does not reset it).
+  daily_cap: 100
+  state_file: "logs/daily_state.json"
+
+  # Wiza's own documented fair-use caps, which apply EVEN ON UNLIMITED PLANS:
+  # 500 contact reveals per 24h, and 50 in any 5 minutes. Exceeding either
+  # blocks further enrichment until the window resets, so the run pauses or
+  # stops rather than walking into a block.
+  #   https://help.wiza.co/en/articles/9902806-what-is-the-fair-use-limit
+  wiza_max_per_24h: 500
+  wiza_max_per_5min: 50
+
+  # Only run between these local hours (24h). An account that views profiles at
+  # 4am every day is trivially identifiable as automated. null disables.
+  working_hours: [9, 20]
+
+run:
+  max_profiles: null           # hard cap per run; null = no cap
+  resume: true                 # skip rows that already have a status written
+  retry_on_error: 1            # retries for load/timeout failures
+
+  # THE DATA-INTEGRITY GUARD. The side panel persists across navigation and
+  # updates a moment later, so a result read too early belongs to the PREVIOUS
+  # profile. Before accepting anything, confirm the panel is showing the person
+  # whose page we are on. Turning this off risks writing A's email onto B's row.
+  verify_profile_name: true
+
+  # Refuse to start if every LinkedIn tab is showing the logged-out view.
+  # LinkedIn serves public profiles signed out, so without this a run looks
+  # healthy while Wiza matches almost nothing.
+  require_linkedin_login: true
+
+  # Pause and wait for you if LinkedIn throws a login wall or checkpoint.
+  pause_on_checkpoint: true
+  save_panel_text_on_failure: true   # dumps to logs/ for debugging

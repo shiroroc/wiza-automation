@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- This title is the point of the file: it makes the automation window
+     identifiable in the taskbar and in alt-tab, instead of "New Tab". -->
+<title>⚙ WIZA AUTOMATION BROWSER — do not use for browsing</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; background: #14152a; color: #e7e8f2;
+    font: 15px/1.6 "Segoe UI", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 32px;
+  }
+  .card { max-width: 640px; width: 100%; }
+  .tag {
+    font: 500 11px/1 ui-monospace, Consolas, monospace; letter-spacing: .18em;
+    text-transform: uppercase; color: #a6a8ec; margin-bottom: 14px;
+  }
+  h1 { font-size: 28px; margin: 0 0 10px; letter-spacing: -.02em; }
+  p.sub { margin: 0 0 26px; color: #a2a4bc; }
+  ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 14px; }
+  li strong { display: block; font-size: 15px; }
+  li span { color: #a2a4bc; font-size: 14px; }
+  a { color: #a6a8ec; }
+  .done {
+    margin-top: 28px; padding: 14px 16px; border-left: 2px solid #6fcb9f;
+    background: #17301f; border-radius: 0 4px 4px 0; font-size: 14px;
+  }
+  code {
+    font-family: ui-monospace, Consolas, monospace; font-size: 13px;
+    background: #1f2140; padding: 2px 6px; border-radius: 3px;
+  }
+  .warn {
+    margin-top: 14px; padding: 14px 16px; border-left: 2px solid #e0b75f;
+    background: #31280f; border-radius: 0 4px 4px 0; font-size: 14px; color: #f0e4c8;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tag">Wiza extraction · automation profile</div>
+    <h1>This is the automation browser.</h1>
+    <p class="sub">Keep it separate from your everyday Chrome. The script drives
+      this window and only this window.</p>
+
+    <ol>
+      <li>
+        <strong>Sign in to LinkedIn</strong>
+        <span>Use the account you have set aside for this work.</span>
+      </li>
+      <li>
+        <strong>Install the Wiza extension and sign in to it</strong>
+        <span><a href="https://chromewebstore.google.com/search/wiza">Chrome Web Store → Wiza</a></span>
+      </li>
+      <li>
+        <strong>Open any LinkedIn profile</strong>
+        <span>Any one will do.</span>
+      </li>
+      <li>
+        <strong>Open the Wiza side panel and pin it</strong>
+        <span>The pin icon in the panel's header. The script reads that panel —
+          if it is closed, there is nothing to read. Leave it pinned.</span>
+      </li>
+    </ol>
+
+    <div class="done">
+      Done all four? Back in the terminal, run
+      <code>.\.venv\Scripts\python.exe doctor.py</code> — it confirms the LinkedIn
+      session and whether the side panel is actually visible to the script.
+    </div>
+
+    <div class="warn">
+      You only sign in once. This profile keeps both logins permanently, across
+      reboots and every future run. Lost this window? Run
+      <code>show-browser.ps1</code>.
+    </div>
+  </div>
+</body>
+</html>

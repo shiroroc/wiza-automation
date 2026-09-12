@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  Stand-in for a LinkedIn profile with the Wiza panel injected.
+
+  It reproduces the two things that actually make this hard:
+    1. the panel lives inside a shadow root (Wiza isolates its UI this way)
+    2. the phone sits behind a SECOND button, revealed only after the email
+
+  Plus realistic page noise - follower counts, date ranges - so the phone
+  detector has something to wrongly match if it is sloppy.
+
+  ?outcome=both | email | none | slow
+-->
+<meta charset="utf-8">
+<!-- Real LinkedIn profile pages title themselves "<Name> | LinkedIn" and render
+     no <h1> at all, so profile_name() reads the title first. The fixture has to
+     match that or it tests a page shape that no longer exists. -->
+<title>Jane Doe | LinkedIn</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 24px; }
+  .noise { color: #666; }
+</style>
+
+<h1>Jane Doe</h1>
+<p class="noise">VP Engineering at Acme &middot; San Francisco</p>
+<p class="noise">500+ connections &middot; 12,345 followers</p>
+<p class="noise">Acme Corp &middot; Jan 2019 - Dec 2023 &middot; 4 yrs 11 mos</p>
+<p class="noise">Previously: Globex 2015 - 2019, employee id 8005551234</p>
+
+<div id="wiza-widget"></div>
+
+<script>
+  const outcome = new URLSearchParams(location.search).get("outcome") || "both";
+  const delay = outcome === "slow" ? 4000 : 900;
+
+  const host = document.getElementById("wiza-widget");
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `
+    <style>
+      .panel { border: 1px solid #ccc; padding: 12px; width: 320px; border-radius: 8px; }
+      button { padding: 6px 12px; cursor: pointer; }
+    </style>
+    <div class="panel">
+      <div class="hdr">Wiza</div>
+      <!-- The real panel names the person it is showing. The runner checks
+           this against the page's h1 so a stale panel cannot write to the
+           wrong row, so the fixture has to carry it too. -->
+      <div id="who">Jane Doe</div>
+      <div id="status">Ready</div>
+      <div id="result"></div>
+      <button id="findBtn">Find Email</button>
+    </div>
+  `;
+
+  const $ = (sel) => root.querySelector(sel);
+
+  $("#findBtn").addEventListener("click", () => {
+    $("#findBtn").remove();
+    $("#status").textContent = "Searching...";
+    setTimeout(() => {
+      $("#status").textContent = "Done";
+      if (outcome === "none") {
+        $("#result").innerHTML = `<div>No email found for this profile</div>`;
+        return;
+      }
+      $("#result").innerHTML =
+        `<div>Email: <a href="mailto:jane@acme.com">jane@acme.com</a></div>`;
+      if (outcome === "both" || outcome === "slow") {
+        // The phone stays hidden until a second, separate reveal.
+        const b2 = document.createElement("button");
+        b2.id = "phoneBtn";
+        b2.textContent = "Reveal Phone";
+        b2.addEventListener("click", () => {
+          b2.remove();
+          setTimeout(() => {
+            $("#result").insertAdjacentHTML("beforeend",
+              `<div>Mobile: <a href="tel:+14155550132">+1 (415) 555-0132</a></div>`);
+          }, delay);
+        });
+        $(".panel").appendChild(b2);
+      }
+    }, delay);
+  });
+</script>

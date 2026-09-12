@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+#  NEVER COMMIT. This repo is public.
+#  NOTE: '#' only starts a comment at the START of a line. An inline comment
+#  after a pattern becomes part of the pattern and silently matches nothing.
+# ---------------------------------------------------------------------------
+
+# Live browser profile: holds your LinkedIn AND Wiza session cookies.
+# Committing this hands anyone with repo access both logged-in accounts.
+.chrome-profile/
+
+# Records absolute paths and your machine's layout.
+.wiza-lock.json
+
+# Your real config, which points at your real data file.
+# config.example.yaml is what ships. Copy it to config.yaml.
+config.yaml
+
+# ---------------------------------------------------------------------------
+#  PERSONAL DATA - other people's contact details
+# ---------------------------------------------------------------------------
+
+# Every spreadsheet is treated as real lead data unless allowed below.
+*.csv
+*.xlsx
+*.xls
+!leads.sample.csv
+
+# Enriched sheets and the generated dashboard: real emails and phone numbers.
+out/
+
+# Run logs record every captured email and phone number.
+logs/
+
+# Panel dumps contain whoever happened to be on screen.
+calibration/
+
+# ---------------------------------------------------------------------------
+#  Local environment
+# ---------------------------------------------------------------------------
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.idea/
+.vscode/
+*.tmp
